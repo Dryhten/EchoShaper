@@ -1,0 +1,8 @@
+localhost, 127.0.0.1 {
+  reverse_proxy backend:{$BACKEND_PORT}
+}
+
+yourdomain.com {
+  reverse_proxy backend:{$BACKEND_PORT}
+}
+

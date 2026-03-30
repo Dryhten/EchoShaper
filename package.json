@@ -1,0 +1,13 @@
+{
+  "name": "echoshaper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:backend": "node scripts/dev-backend.mjs",
+    "dev:frontend": "node scripts/dev-frontend.mjs",
+    "install": "node scripts/install.mjs",
+    "start": "node scripts/start.mjs"
+  }
+}
+

@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: echoshaper-backend
+Version: 0.1.0
+Requires-Python: >=3.11
+Requires-Dist: fastapi
+Requires-Dist: uvicorn[standard]
+Requires-Dist: pydantic
+Requires-Dist: openai
+Requires-Dist: PyYAML
+Requires-Dist: pytest
+Requires-Dist: python-dotenv
+Requires-Dist: websockets
+Requires-Dist: python-multipart
