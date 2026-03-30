@@ -1,9 +1,12 @@
 # EchoShaper
 
-EchoShaper 是一个“ASR 文本后处理塑形”小应用，前端为 Vite/React，后端为 FastAPI，并提供两个 API 能力：
+EchoShaper 是一个“ASR 文本后处理塑形”小应用，前端为 Vite/React，后端为 FastAPI。当前支持：
 
 - `POST /api/v1/llm/test`：大模型连通性测试
 - `POST /api/v1/text/shape`：对原始文本进行塑形处理
+- `POST /api/v1/asr/file/asr`：上传音频，仅 ASR
+- `POST /api/v1/asr/file`：上传音频，ASR + 后处理
+- `WS /api/v1/asr/stream`：流式 ASR + 后处理
 
 ## 安装依赖
 
@@ -51,6 +54,14 @@ node scripts/start-backend.mjs
 ## 后端 API 说明
 
 以下示例以 `http://localhost:8058` 为例（路径不带域名时也可直接用相对 `/api/...`）。
+
+### 通用说明
+
+- `asr_config.asr_model_name`：ASR 模型路由参数（当前默认/可用值为 `two_pass_ws`）。
+- 个人词库 `lexicon` 会同时用于：
+  - 后处理纠错（`/api/v1/text/shape` 与带 `postprocess` 的接口）；
+  - ASR 热词（`/api/v1/asr/file/asr`、`/api/v1/asr/file`、`/api/v1/asr/stream`）。
+- 热词合并规则：显式 `asr_config.hotwords` 优先保留，词库词条只做补充，不覆盖已传权重。
 
 ### 1) 大模型连通性测试
 
@@ -101,6 +112,96 @@ node scripts/start-backend.mjs
   "personal_preference": "尽量简短，不要废话"
 }
 ```
+
+### 3) 上传音频，仅 ASR
+
+`POST /api/v1/asr/file/asr`（`multipart/form-data`）
+
+表单字段：
+
+- `file`：WAV 音频文件（PCM16 单声道，后端会重采样到 8k）。
+- `asr_config`（可选，JSON 字符串）：
+
+```json
+{
+  "asr_model_name": "two_pass_ws",
+  "wav_name": "case_001",
+  "hotwords": "{\"警官\":36}"
+}
+```
+
+- `lexicon`（可选，JSON 字符串数组）：
+
+```json
+["警官", "回声作坊"]
+```
+
+说明：`lexicon` 会自动并入 ASR `hotwords`，并遵循“显式 hotwords 优先”规则。
+
+### 4) 上传音频，ASR + 后处理
+
+`POST /api/v1/asr/file`（`multipart/form-data`）
+
+表单字段：
+
+- `file`：WAV 音频文件。
+- `asr_config`（可选，JSON 字符串）：同上。
+- `postprocess`（必填，JSON 字符串）：
+
+```json
+{
+  "llm_config": {
+    "model_name": "glm-4",
+    "base_url": "https://your-llm-host/v1",
+    "api_key": "your-key"
+  },
+  "preset_skills": ["protect_lexicon", "auto_structure"],
+  "custom_skills": [],
+  "lexicon": ["警官", "回声作坊"],
+  "personal_preference": "尽量简短，不要废话"
+}
+```
+
+说明：该接口中 `postprocess.lexicon` 会同时作用于 ASR 热词和后处理纠错。
+
+### 5) 流式识别（WebSocket）
+
+`WS /api/v1/asr/stream`
+
+连接成功后，先发送初始化 JSON：
+
+```json
+{
+  "postprocess": {
+    "llm_config": {
+      "model_name": "glm-4",
+      "base_url": "https://your-llm-host/v1",
+      "api_key": "your-key"
+    },
+    "preset_skills": ["protect_lexicon", "auto_structure"],
+    "custom_skills": [],
+    "lexicon": ["警官", "回声作坊"],
+    "personal_preference": "尽量简短，不要废话"
+  },
+  "asr_config": {
+    "asr_model_name": "two_pass_ws",
+    "wav_name": "web_123456"
+  }
+}
+```
+
+然后持续发送 PCM 音频字节流，结束时可发送：
+
+```json
+{"type":"stop"}
+```
+
+常见消息：
+
+- `asr.partial`：在线增量文本
+- `asr.final`：离线最终文本
+- `shape.result`：后处理结果
+- `shape.skipped`：后处理被跳过（如 LLM 返回空结果），流不会因此中断
 
 响应成功示例（`ShapeResponse`）：
 
