@@ -1,9 +1,0 @@
-fastapi
-uvicorn[standard]
-pydantic
-openai
-PyYAML
-pytest
-python-dotenv
-websockets
-python-multipart
