@@ -226,6 +226,16 @@ node scripts/start-backend.mjs
 }
 ```
 
+### 6) 健康检查
+
+`GET /health`
+
+返回示例：
+
+```json
+{"status":"ok"}
+```
+
 ## Docker（可选）
 
 如果你只想快速跑后端（并由 `caddy` 负责转发静态前端与 `/api`）：

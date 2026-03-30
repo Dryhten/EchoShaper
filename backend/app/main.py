@@ -51,6 +51,11 @@ async def _startup() -> None:
     _preset_skills = load_preset_skills(_PRESETS_PATH)
 
 
+@app.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @app.post("/api/v1/llm/test", response_model=LLMTestResponse)
 async def llm_test(payload: LLMConfig) -> LLMTestResponse:
     """

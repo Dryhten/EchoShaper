@@ -88,7 +88,6 @@ export default function App() {
   const [skillDraftDescription, setSkillDraftDescription] = useState('')
   const [skillDraftInstruction, setSkillDraftInstruction] = useState('')
   const [skillDraftError, setSkillDraftError] = useState<string | null>(null)
-  const [callMethodModalOpen, setCallMethodModalOpen] = useState(false)
 
   const [llmTestLoading, setLlmTestLoading] = useState(false)
   const [llmTestError, setLlmTestError] = useState<string | null>(null)
@@ -422,14 +421,6 @@ export default function App() {
     setSkillDraftError(null)
   }
 
-  function openCallMethodModal() {
-    setCallMethodModalOpen(true)
-  }
-
-  function closeCallMethodModal() {
-    setCallMethodModalOpen(false)
-  }
-
   function onAddSkillFromModal() {
     setSkillDraftError(null)
 
@@ -547,13 +538,6 @@ export default function App() {
           <section className="rounded-lg border bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-4">
               <h2 className="text-lg font-medium">文本塑形</h2>
-              <button
-                type="button"
-                className="rounded border border-gray-200 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-                onClick={openCallMethodModal}
-              >
-                调用方式
-              </button>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
@@ -939,111 +923,6 @@ export default function App() {
             >
               添加
             </button>
-          </div>
-        </div>
-      </div>
-    ) : null}
-    {callMethodModalOpen ? (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        onClick={closeCallMethodModal}
-      >
-        <div
-          className="w-full max-w-2xl rounded-lg bg-white p-6 text-gray-900 shadow-lg"
-          role="dialog"
-          aria-modal="true"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-semibold">调用方式</h3>
-              <div className="mt-1 text-xs text-gray-600">
-                以下示例为同源部署：`/api/v1/...`。
-              </div>
-            </div>
-            <button
-              type="button"
-              className="rounded border border-gray-200 px-2 py-1 text-sm text-gray-600"
-              onClick={closeCallMethodModal}
-            >
-              X
-            </button>
-          </div>
-
-          <div className="mt-4 space-y-5">
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-900">1) 塑形接口：POST `/api/v1/text/shape`</div>
-              <div className="text-xs text-gray-600">curl 示例</div>
-              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
-{`curl -X POST http://localhost:8058/api/v1/text/shape \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "raw_text": "景观，这个人真不是我打的。",
-    "llm_config": {
-      "model_name": "qwen-plus",
-      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      "api_key": "your-key"
-    }
-  }'`}
-              </pre>
-              <div className="text-xs text-gray-600">fetch 示例</div>
-              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
-{`const payload = {
-  raw_text: "景观，这个人真不是我打的。",
-  llm_config: {
-    model_name: "qwen-plus",
-    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    api_key: "your-key"
-  }
-}
-
-const resp = await fetch("/api/v1/text/shape", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(payload)
-})
-
-const data = await resp.json()
-console.log(data)`}
-              </pre>
-              <div className="text-xs text-gray-600">
-                返回字段包含：`result_text`、`tokens_used`、`latency_ms`。
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-900">2) 连通性测试：POST `/api/v1/llm/test`</div>
-              <div className="text-xs text-gray-600">curl 示例</div>
-              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
-{`curl -X POST http://localhost:8058/api/v1/llm/test \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model_name": "qwen-plus",
-    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "api_key": "your-key"
-  }'`}
-              </pre>
-              <div className="text-xs text-gray-600">fetch 示例</div>
-              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
-{`const payload = {
-  model_name: "qwen-plus",
-  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  api_key: "your-key"
-}
-
-const resp = await fetch("/api/v1/llm/test", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(payload)
-})
-
-const data = await resp.json()
-console.log(data)`}
-              </pre>
-              <div className="text-xs text-gray-600">
-                返回字段包含：`latency_ms`、`message`。
-              </div>
-            </div>
           </div>
         </div>
       </div>
