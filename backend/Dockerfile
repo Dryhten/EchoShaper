@@ -4,9 +4,8 @@ WORKDIR /frontend
 COPY frontend/package.json ./package.json
 COPY frontend/package-lock.json ./package-lock.json
 
-# If you have a lockfile later, switching to `npm ci` would be better.
-# Keep it simple here; `npm install` will still work without it.
-RUN npm ci
+# Keep image build resilient when lockfile is out of sync.
+RUN npm install --no-audit --no-fund
 
 COPY frontend/ .
 RUN npm run build
