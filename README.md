@@ -108,7 +108,7 @@ node scripts/start-backend.mjs
     "remove_trailing_period"
   ],
   "custom_skills": [],
-  "lexicon": ["OpenAI", "EchoShaper"],
+  "lexicon": ["下午", "大师"],
   "personal_preference": "尽量简短，不要废话"
 }
 ```
