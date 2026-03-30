@@ -16,7 +16,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir uv && uv pip install -r requirements.txt
+RUN pip install --no-cache-dir uv && uv pip install --system -r requirements.txt
 
 COPY backend/ ./
 
@@ -25,4 +25,4 @@ RUN mkdir -p ./frontend_dist
 COPY --from=frontend_build /frontend/dist ./frontend_dist
 
 EXPOSE 8058
-CMD ["uv", "run", "app.py"]
+CMD ["python", "app.py"]

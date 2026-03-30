@@ -203,6 +203,12 @@ node scripts/start-backend.mjs
 - `shape.result`：后处理结果
 - `shape.skipped`：后处理被跳过（如 LLM 返回空结果），流不会因此中断
 
+前端录音注意事项（部署环境）：
+
+- 浏览器录音依赖 `navigator.mediaDevices.getUserMedia`，仅在安全上下文可用（`https://` 或 `localhost`）。
+- 生产环境若使用 `http://`，会出现 `Cannot read properties of undefined (reading 'getUserMedia')`。
+- 若启用了 `Permissions-Policy`，请确保未禁用麦克风（例如不要配置 `microphone=()`）。
+
 响应成功示例（`ShapeResponse`）：
 
 ```json
@@ -227,6 +233,8 @@ node scripts/start-backend.mjs
 ```bash
 docker-compose up --build -d
 ```
+
+说明：后端镜像安装 Python 依赖时使用 `uv pip --system`（容器内系统环境），并以 `python app.py` 启动，避免 `uv` 在无虚拟环境时的安装/运行报错。
 
 然后访问：
 
