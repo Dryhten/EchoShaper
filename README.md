@@ -145,7 +145,16 @@ node scripts/start-backend.mjs
 表单字段：
 
 - `file`：WAV 音频文件。
-- `asr_config`（可选，JSON 字符串）：同上。
+- `asr_config`（可选，JSON 字符串）：
+
+```json
+{
+  "asr_model_name": "funasr",
+  "wav_name": "case_001",
+  "hotwords": "{\"警官\":36}"
+}
+```
+
 - `postprocess`（必填，JSON 字符串）：
 
 ```json
