@@ -6,13 +6,14 @@ from typing import Any
 from pydantic import Field
 
 from app.models.asr_adapter_schemas import AsrModelOutput, AudioData
+from app.models.asr_model_names import AsrModelName, DEFAULT_ASR_MODEL_NAME
 from app.models.schemas import Asr2PassConfig
 from app.services.asr_2pass import run_2pass_asr
 from app.services.asr_model_base import BaseAsrModel
 
 
 class TwoPassInput(Asr2PassConfig):
-    asr_model_name: str = "two_pass_ws"
+    asr_model_name: AsrModelName = DEFAULT_ASR_MODEL_NAME
 
 
 class TwoPassOutput(AsrModelOutput):
@@ -46,6 +47,7 @@ class TwoPassWsAsrModel(BaseAsrModel[TwoPassInput, TwoPassOutput]):
 
     def build_stream_init_payload(self, model_input: TwoPassInput, *, session_id: str) -> dict[str, Any]:
         asr_cfg = model_input.model_dump()
+        asr_cfg.pop("asr_model_name", None)
         asr_cfg["wav_name"] = session_id
         if not asr_cfg.get("hotwords"):
             asr_cfg["hotwords"] = json.dumps({"警官": 36, "民警": 36, "处警": 30}, ensure_ascii=False)

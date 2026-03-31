@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.asr_model_names import AsrModelName, DEFAULT_ASR_MODEL_NAME
+
 
 class AudioData(BaseModel):
     pcm_bytes: bytes
@@ -12,7 +14,7 @@ class AudioData(BaseModel):
 
 
 class AsrModelInput(BaseModel):
-    asr_model_name: str = "two_pass_ws"
+    asr_model_name: AsrModelName = DEFAULT_ASR_MODEL_NAME
 
 
 class AsrModelOutput(BaseModel):

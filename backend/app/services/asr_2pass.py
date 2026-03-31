@@ -114,6 +114,7 @@ async def run_2pass_asr(
     - 等待 mode=2pass-offline 的最终结果
     """
     cfg = config.model_dump()
+    cfg.pop("asr_model_name", None)
     cfg["wav_name"] = wav_name
     cfg["wav_format"] = "pcm"
     cfg["mode"] = "2pass"

@@ -4,6 +4,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+from app.models.asr_model_names import AsrModelName, DEFAULT_ASR_MODEL_NAME
+
 
 class LLMConfig(BaseModel):
     model_name: str
@@ -40,7 +42,7 @@ class PostProcessParams(BaseModel):
 
 
 class Asr2PassConfig(BaseModel):
-    asr_model_name: str = "two_pass_ws"
+    asr_model_name: AsrModelName = DEFAULT_ASR_MODEL_NAME
     chunk_size: list[int] = Field(default_factory=lambda: [5, 10, 5])
     wav_name: str = "h5"
     is_speaking: bool = True

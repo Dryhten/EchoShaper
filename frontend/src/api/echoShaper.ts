@@ -10,8 +10,8 @@ import { requestForm, requestJson } from './client'
 
 const LLM_TEST_PATH = '/api/v1/llm/test'
 const TEXT_SHAPE_PATH = '/api/v1/text/shape'
-const ASR_FILE_ASR_PATH = '/api/v1/asr/file/asr'
-const ASR_FILE_SHAPE_PATH = '/api/v1/asr/file'
+const ASR_FILE_ASR_PATH = '/api/v1/asr/transcribe'
+const ASR_FILE_SHAPE_PATH = '/api/v1/asr/transcribe/shape'
 
 export async function llmTest(payload: LLMConfig): Promise<LLMTestResponse> {
   return requestJson<LLMTestResponse>(LLM_TEST_PATH, payload)

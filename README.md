@@ -4,8 +4,8 @@ EchoShaper 是一个“ASR 文本后处理塑形”小应用，前端为 Vite/Re
 
 - `POST /api/v1/llm/test`：大模型连通性测试
 - `POST /api/v1/text/shape`：对原始文本进行塑形处理
-- `POST /api/v1/asr/file/asr`：上传音频，仅 ASR
-- `POST /api/v1/asr/file`：上传音频，ASR + 后处理
+- `POST /api/v1/asr/transcribe`：上传音频，仅 ASR（转写）
+- `POST /api/v1/asr/transcribe/shape`：上传音频，ASR + 后处理（转写后塑形）
 - `WS /api/v1/asr/stream`：流式 ASR + 后处理
 
 ## 安装依赖
@@ -57,10 +57,10 @@ node scripts/start-backend.mjs
 
 ### 通用说明
 
-- `asr_config.asr_model_name`：ASR 模型路由参数（当前默认/可用值为 `two_pass_ws`）。
+- `asr_config.asr_model_name`（可选）：预制 ASR 模型名。不传时默认为 `funasr`。当前仅允许：`funasr`。传入其它字符串会校验失败（HTTP 400 或 WebSocket 错误消息）。
 - 个人词库 `lexicon` 会同时用于：
   - 后处理纠错（`/api/v1/text/shape` 与带 `postprocess` 的接口）；
-  - ASR 热词（`/api/v1/asr/file/asr`、`/api/v1/asr/file`、`/api/v1/asr/stream`）。
+  - ASR 热词（`/api/v1/asr/transcribe`、`/api/v1/asr/transcribe/shape`、`/api/v1/asr/stream`）。
 - 热词合并规则：显式 `asr_config.hotwords` 优先保留，词库词条只做补充，不覆盖已传权重。
 
 ### 1) 大模型连通性测试
@@ -113,9 +113,9 @@ node scripts/start-backend.mjs
 }
 ```
 
-### 3) 上传音频，仅 ASR
+### 3) 上传音频，仅 ASR（转写）
 
-`POST /api/v1/asr/file/asr`（`multipart/form-data`）
+`POST /api/v1/asr/transcribe`（`multipart/form-data`）
 
 表单字段：
 
@@ -124,7 +124,7 @@ node scripts/start-backend.mjs
 
 ```json
 {
-  "asr_model_name": "two_pass_ws",
+  "asr_model_name": "funasr",
   "wav_name": "case_001",
   "hotwords": "{\"警官\":36}"
 }
@@ -138,9 +138,9 @@ node scripts/start-backend.mjs
 
 说明：`lexicon` 会自动并入 ASR `hotwords`，并遵循“显式 hotwords 优先”规则。
 
-### 4) 上传音频，ASR + 后处理
+### 4) 上传音频，ASR + 后处理（转写后塑形）
 
-`POST /api/v1/asr/file`（`multipart/form-data`）
+`POST /api/v1/asr/transcribe/shape`（`multipart/form-data`）
 
 表单字段：
 
@@ -184,7 +184,7 @@ node scripts/start-backend.mjs
     "personal_preference": "尽量简短，不要废话"
   },
   "asr_config": {
-    "asr_model_name": "two_pass_ws",
+    "asr_model_name": "funasr",
     "wav_name": "web_123456"
   }
 }

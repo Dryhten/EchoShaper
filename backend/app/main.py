@@ -38,6 +38,13 @@ from app.services.llm_client import create_llm_client, chat_completion
 from app.utils.text import strip_trailing_period
 
 
+def _resolve_asr_model(asr_model_name: str):
+    try:
+        return get_asr_model(asr_model_name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 app = FastAPI(title="EchoShaper ASR Text Shaper", version="0.1.0")
 
 
@@ -153,7 +160,7 @@ def _parse_lexicon_or_empty(raw: Optional[str]) -> list[str]:
     return parse_lexicon_json(text)
 
 
-@app.post("/api/v1/asr/file/asr", response_model=AsrFileAsrResponse)
+@app.post("/api/v1/asr/transcribe", response_model=AsrFileAsrResponse)
 async def asr_file_asr(
     file: UploadFile = File(...),
     asr_config: Optional[str] = Form(default=None),
@@ -184,12 +191,14 @@ async def asr_file_asr(
     cfg.wav_name = wav_name
 
     try:
-        asr_model = get_asr_model(cfg.asr_model_name)
+        asr_model = _resolve_asr_model(cfg.asr_model_name)
         asr_output = await asr_model.run(
             AudioData(pcm_bytes=pcm, sample_rate_hz=sr),
             cfg,
             TwoPassOutput,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"ASR failed ({type(e).__name__}): {e}") from e
 
@@ -200,7 +209,7 @@ async def asr_file_asr(
     )
 
 
-@app.post("/api/v1/asr/file", response_model=AsrFileShapeResponse)
+@app.post("/api/v1/asr/transcribe/shape", response_model=AsrFileShapeResponse)
 async def asr_file_shape(
     file: UploadFile = File(...),
     postprocess: str = Form(...),
@@ -232,12 +241,14 @@ async def asr_file_shape(
     cfg.wav_name = wav_name
 
     try:
-        asr_model = get_asr_model(cfg.asr_model_name)
+        asr_model = _resolve_asr_model(cfg.asr_model_name)
         asr_output = await asr_model.run(
             AudioData(pcm_bytes=pcm, sample_rate_hz=sr),
             cfg,
             TwoPassOutput,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"ASR failed ({type(e).__name__}): {e}") from e
 
@@ -278,7 +289,11 @@ async def asr_stream(ws: WebSocket) -> None:
         asr_input = TwoPassInput.model_validate(init_obj.asr_config.model_dump())
         asr_input.hotwords = merge_hotwords_json_with_lexicon(asr_input.hotwords, init_obj.postprocess.lexicon)
         asr_input.wav_name = session_id
-        asr_model = get_asr_model(asr_input.asr_model_name)
+        try:
+            asr_model = get_asr_model(asr_input.asr_model_name)
+        except ValueError as e:
+            await _ws_send_json(ws, {"type": "error", "message": str(e)})
+            return
         remote_url = asr_model.stream_remote_url(asr_input)
         asr_cfg = asr_model.build_stream_init_payload(asr_input, session_id=session_id)
 
