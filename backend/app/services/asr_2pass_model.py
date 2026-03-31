@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any
 
 from pydantic import Field
@@ -14,6 +15,7 @@ from app.services.asr_model_base import BaseAsrModel
 
 class TwoPassInput(Asr2PassConfig):
     asr_model_name: AsrModelName = DEFAULT_ASR_MODEL_NAME
+    wav_name: str = Field(default_factory=lambda: uuid.uuid4().hex)
 
 
 class TwoPassOutput(AsrModelOutput):

@@ -111,6 +111,10 @@ export default function App() {
   const [asrFileError, setAsrFileError] = useState<string | null>(null)
   const [asrFileAsrResult, setAsrFileAsrResult] = useState<AsrFileAsrResponse | null>(null)
   const [asrFileShapeResult, setAsrFileShapeResult] = useState<AsrFileShapeResponse | null>(null)
+  const [asrHotwordsInput, setAsrHotwordsInput] = useLocalStorageState<string>(
+    'echoshaper_asr_hotwords_json',
+    '',
+  )
 
   const selectedPresetKeys = useMemo(() => new Set(presetSkills), [presetSkills])
 
@@ -121,6 +125,12 @@ export default function App() {
     setCustomSkillsEnabled((prev) => customSkills.map((_, idx) => prev[idx] ?? true))
   }, [customSkills, setCustomSkillsEnabled])
 
+  function optionalAsrConfig(): Record<string, unknown> | undefined {
+    const hotwords = asrHotwordsInput.trim()
+    if (!hotwords) return undefined
+    return { hotwords }
+  }
+
   function togglePreset(key: string) {
     setPresetSkills((prev) => {
       const set = new Set(prev)
@@ -128,11 +138,6 @@ export default function App() {
       else set.add(key)
       return Array.from(set)
     })
-  }
-
-  function buildAutoWavName(file: File) {
-    const base = file.name.replace(/\.[^/.]+$/, '').trim()
-    return base || `web_${Date.now()}`
   }
 
   async function onRunLlmTest() {
@@ -186,9 +191,7 @@ export default function App() {
     setAsrFileShapeResult(null)
 
     try {
-      const lexicon = parseLexiconInput(lexiconInput)
-      const asrConfig = { wav_name: buildAutoWavName(asrFile) }
-      const resp = await asrFileAsr(asrFile, asrConfig, lexicon)
+      const resp = await asrFileAsr(asrFile, optionalAsrConfig())
       setAsrFileAsrResult(resp)
     } catch (e) {
       setAsrFileError(formatError(e))
@@ -213,8 +216,7 @@ export default function App() {
         lexicon: parseLexiconInput(lexiconInput),
         personal_preference: personalPreference,
       }
-      const asrConfig = { wav_name: buildAutoWavName(asrFile) }
-      const resp = await asrFileShape(asrFile, postprocess, asrConfig)
+      const resp = await asrFileShape(asrFile, postprocess, optionalAsrConfig())
       setAsrFileShapeResult(resp)
     } catch (e) {
       setAsrFileError(formatError(e))
@@ -321,9 +323,7 @@ export default function App() {
               lexicon: parseLexiconInput(lexiconInput),
               personal_preference: personalPreference,
             },
-            asr_config: {
-              wav_name: `web_${Date.now()}`,
-            },
+            asr_config: optionalAsrConfig() ?? {},
           }),
         )
 
@@ -457,16 +457,17 @@ export default function App() {
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-5xl p-6">
-        <header className="mb-6">
-          <h1 className="text-3xl font-semibold">EchoShaper</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            语音文本的后处理塑形，支持预设技能和自定义技能。
+        <header className="mb-8 border-b border-gray-200 pb-6">
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">EchoShaper</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">
+            先配置大模型与塑形规则，再对文本或语音结果做整理。支持文本粘贴塑形、上传 WAV、实时麦克风识别。
           </p>
         </header>
 
-        <div className="space-y-6">
-          <section className="rounded-lg border bg-white p-4">
-            <h2 className="mb-3 text-lg font-medium">LLM 配置</h2>
+        <div className="space-y-8">
+          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 text-lg font-semibold text-gray-900">大模型</h2>
+            <p className="mb-4 text-sm text-gray-600">塑形与连通性测试使用的接口地址与密钥。</p>
 
             <div className="grid gap-3 md:grid-cols-3">
               <label className="grid gap-1">
@@ -530,27 +531,18 @@ export default function App() {
                   <div className="text-gray-600">延迟：{llmTestResult.latency_ms} ms</div>
                 </div>
               ) : (
-                <div className="text-sm text-gray-600">点击按钮验证模型连通性。</div>
+                <div className="text-sm text-gray-600">检查当前配置能否正常调用模型。</div>
               )}
             </div>
           </section>
 
-          <section className="rounded-lg border bg-white p-4">
-            <div className="mb-3 flex items-center justify-between gap-4">
-              <h2 className="text-lg font-medium">文本塑形</h2>
-            </div>
+          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 text-lg font-semibold text-gray-900">塑形配置</h2>
+            <p className="mb-5 text-sm text-gray-600">
+              预设技能、词库与偏好会用于文本塑形，以及上传音频「识别 + 后处理」、实时语音识别中的后处理环节。
+            </p>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <label className="grid gap-2">
-                <span className="text-sm text-gray-700">原始文本</span>
-                <textarea
-                  className="min-h-56 w-full resize-y rounded border px-3 py-2 text-sm"
-                  value={rawText}
-                  onChange={(e) => setRawText(e.target.value)}
-                  placeholder="把 ASR 输出的原始文本粘贴到这里..."
-                />
-              </label>
-
               <div className="space-y-4">
                 <div className="space-y-2">
                   <div className="text-sm font-medium text-gray-800">预设技能</div>
@@ -558,7 +550,7 @@ export default function App() {
                     {PRESET_SKILLS.map((s) => (
                       <label
                         key={s.key}
-                        className="flex items-center gap-2 rounded border px-3 py-2 text-sm"
+                        className="flex items-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm"
                       >
                         <input
                           type="checkbox"
@@ -572,90 +564,143 @@ export default function App() {
                 </div>
 
                 <label className="grid gap-1">
-                  <span className="text-sm text-gray-700">个人词库（纠错/替换）</span>
+                  <span className="text-sm text-gray-700">个人词库</span>
                   <input
-                    className="w-full rounded border px-3 py-2 text-sm"
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
                     value={lexiconInput}
                     onChange={(e) => setLexiconInput(e.target.value)}
                     placeholder="警官;回声作坊"
                   />
-                  <div className="text-xs text-gray-600">
-                    用英文分号 `;` 分隔词条（示例：`警官;EchoShaper`）。当文本中出现疑似 ASR 误识别时，模型会在语义允许的情况下用词库词替换。
-                  </div>
+                  <p className="text-xs text-gray-500">塑形时优先保留或纠正这些词，多个词用英文分号分隔。</p>
                 </label>
 
                 <label className="grid gap-1">
                   <span className="text-sm text-gray-700">个人偏好</span>
                   <input
-                    className="w-full rounded border px-3 py-2 text-sm"
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
                     value={personalPreference}
                     onChange={(e) => setPersonalPreference(e.target.value)}
                     placeholder="尽量简短，不要废话"
                   />
                 </label>
+              </div>
 
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-medium text-gray-800">自定义技能（可添加多个）</div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        可逐条选择是否启用，启用后会按顺序注入到后端 prompt。
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded bg-purple-600 px-4 py-2 text-sm font-medium text-white"
-                      onClick={openSkillModal}
-                    >
-                      添加技能
-                    </button>
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-gray-800">自定义技能</div>
+                    <p className="mt-1 text-xs text-gray-500">勾选参与塑形，按列表顺序生效。</p>
                   </div>
-
-                  {customSkills.length === 0 ? (
-                    <div className="text-sm text-gray-600">暂无自定义技能</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {customSkills.map((s, idx) => (
-                        <div key={`${s.name}-${idx}`} className="rounded border bg-white p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <label className="flex min-w-0 cursor-pointer items-start gap-2">
-                              <input
-                                type="checkbox"
-                                className="mt-1"
-                                checked={customSkillsEnabled[idx] ?? true}
-                                onChange={(e) => {
-                                  const checked = e.target.checked
-                                  setCustomSkillsEnabled((prev) =>
-                                    customSkills.map((_, i) => (i === idx ? checked : prev[i] ?? true)),
-                                  )
-                                }}
-                              />
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium text-gray-900">{s.name}</div>
-                                <div className="text-xs text-gray-600">{s.description}</div>
-                              </div>
-                            </label>
-                            <button
-                              type="button"
-                              className="rounded border px-2 py-1 text-xs text-gray-800"
-                              onClick={() => onRemoveCustomSkill(idx)}
-                            >
-                              删除
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
+                  <button
+                    type="button"
+                    className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white"
+                    onClick={openSkillModal}
+                  >
+                    添加技能
+                  </button>
                 </div>
+
+                {customSkills.length === 0 ? (
+                  <div className="text-sm text-gray-600">暂无自定义技能</div>
+                ) : (
+                  <div className="space-y-2">
+                    {customSkills.map((s, idx) => (
+                      <div key={`${s.name}-${idx}`} className="rounded border border-gray-200 bg-gray-50 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <label className="flex min-w-0 cursor-pointer items-start gap-2">
+                            <input
+                              type="checkbox"
+                              className="mt-1"
+                              checked={customSkillsEnabled[idx] ?? true}
+                              onChange={(e) => {
+                                const checked = e.target.checked
+                                setCustomSkillsEnabled((prev) =>
+                                  customSkills.map((_, i) => (i === idx ? checked : prev[i] ?? true)),
+                                )
+                              }}
+                            />
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-900">{s.name}</div>
+                              <div className="text-xs text-gray-600">{s.description}</div>
+                            </div>
+                          </label>
+                          <button
+                            type="button"
+                            className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-800"
+                            onClick={() => onRemoveCustomSkill(idx)}
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+          </section>
 
-            <div className="mt-4 flex items-start justify-between gap-4">
+          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 text-lg font-semibold text-gray-900">文本塑形</h2>
+            <p className="mb-4 text-sm text-gray-600">
+              对已有文本做整理（使用上方「塑形配置」）。上传音频与实时识别中的后处理也会沿用同一套配置。
+            </p>
+
+            <div className="flex min-w-0 flex-col gap-4">
+              <label className="grid gap-2">
+                <span className="text-sm text-gray-700">原始文本</span>
+                <textarea
+                  className="min-h-56 w-full resize-y rounded border border-gray-300 px-3 py-2 text-sm"
+                  value={rawText}
+                  onChange={(e) => setRawText(e.target.value)}
+                  placeholder="把 ASR 输出的原始文本粘贴到这里..."
+                />
+              </label>
+
+              {shapeResult ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium text-gray-900">塑形结果</span>
+                    <span className="text-xs text-gray-500">
+                      输出 {shapeResult.processed_length} 字 / 原文 {shapeResult.original_length} 字
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="rounded border border-white bg-white px-2 py-1.5 text-xs">
+                      <div className="text-gray-500">Prompt</div>
+                      <div className="font-semibold text-gray-900">{shapeResult.tokens_used.prompt}</div>
+                    </div>
+                    <div className="rounded border border-white bg-white px-2 py-1.5 text-xs">
+                      <div className="text-gray-500">Completion</div>
+                      <div className="font-semibold text-gray-900">{shapeResult.tokens_used.completion}</div>
+                    </div>
+                    <div className="rounded border border-white bg-white px-2 py-1.5 text-xs">
+                      <div className="text-gray-500">合计</div>
+                      <div className="font-semibold text-gray-900">{shapeResult.tokens_used.total}</div>
+                    </div>
+                    <div className="rounded border border-white bg-white px-2 py-1.5 text-xs">
+                      <div className="text-gray-500">耗时</div>
+                      <div className="font-semibold text-gray-900">{shapeResult.latency_ms} ms</div>
+                    </div>
+                  </div>
+
+                  <label className="mt-3 grid gap-2">
+                    <span className="text-sm text-gray-700">输出文本</span>
+                    <textarea
+                      className="min-h-40 w-full resize-y rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+                      value={shapeResult.result_text}
+                      readOnly
+                    />
+                  </label>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-4 flex items-start justify-between gap-4 border-t border-gray-100 pt-4">
               <button
                 type="button"
-                className="rounded bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                 onClick={onRunShape}
                 disabled={shapeLoading || !rawText.trim()}
               >
@@ -665,20 +710,22 @@ export default function App() {
               {shapeError ? (
                 <div className="text-sm text-red-700">{shapeError}</div>
               ) : (
-                <div className="text-sm text-gray-600">
-                  选择需要的预设技能/自定义技能后，点击开始塑形。
-                </div>
+                <p className="text-sm text-gray-500">粘贴或输入原文后点击开始。</p>
               )}
             </div>
           </section>
 
-          <section className="rounded-lg border bg-white p-4">
-            <h2 className="mb-3 text-lg font-medium">上传音频文件识别</h2>
-            <div className="grid gap-4">
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-gray-800">选择 WAV 文件（PCM16 单声道，8k/16k）</span>
+          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 text-lg font-semibold text-gray-900">上传音频识别</h2>
+            <p className="mb-5 text-sm text-gray-600">
+              从本机选择 WAV，只做转写，或转写后再做与「文本塑形」相同规则的后处理。
+            </p>
+
+            <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-gray-800">音频文件</span>
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex cursor-pointer items-center rounded bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
+                  <label className="inline-flex cursor-pointer items-center rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
                     选择文件
                     <input
                       type="file"
@@ -693,15 +740,24 @@ export default function App() {
                       }}
                     />
                   </label>
-                  <span className="text-sm text-gray-700">{asrFile?.name ?? '未选择文件'}</span>
+                  <span className="text-sm text-gray-700">{asrFile?.name ?? '未选择'}</span>
                 </div>
-                <div className="text-xs text-gray-600">
-                  后端当前仅支持 WAV（8k/16k），会在需要时把 16k 下采样到 8k。
-                </div>
-              </label>
+                <p className="text-xs text-gray-500">单声道 WAV，8k 或 16k 采样率。</p>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-gray-800">ASR识别热词（可选）</span>
+                <textarea
+                  className="min-h-[5.5rem] w-full resize-y rounded-md border border-gray-300 px-3 py-2 font-mono text-sm"
+                  value={asrHotwordsInput}
+                  onChange={(e) => setAsrHotwordsInput(e.target.value)}
+                  placeholder='{"专有名词":36}'
+                />
+                <p className="text-xs text-gray-500">希望识别阶段更偏向某些词时填写；数字为权重，越大越优先。</p>
+              </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-5">
               <button
                 type="button"
                 className="rounded bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
@@ -731,9 +787,9 @@ export default function App() {
                     readOnly
                   />
                 </label>
-                <div className="rounded border p-3 text-sm text-gray-700">
-                  <div className="text-gray-600">wav_name</div>
-                  <div className="font-medium">{asrFileAsrResult.wav_name}</div>
+                <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                  <div className="text-gray-500">本次任务编号</div>
+                  <div className="mt-1 font-mono text-sm font-medium text-gray-900">{asrFileAsrResult.wav_name}</div>
                 </div>
               </div>
             ) : null}
@@ -760,43 +816,54 @@ export default function App() {
             ) : null}
           </section>
 
-          <section className="rounded-lg border bg-white p-4">
-            <h2 className="mb-3 text-lg font-medium">语音流式识别（2PASS + 后处理）</h2>
+          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 text-lg font-semibold text-gray-900">实时语音识别</h2>
+            <p className="mb-4 text-sm text-gray-600">
+              使用麦克风连续识别；塑形沿用本页「大模型」「文本塑形」中的词库与技能；ASR识别热词与上传音频处相同。
+            </p>
+
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                className="rounded bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                 onClick={onStartAsrStream}
                 disabled={asrWsStatus === 'connecting' || asrWsStatus === 'connected'}
               >
-                {asrWsStatus === 'connecting' ? '连接中...' : asrWsStatus === 'connected' ? '已连接' : '开始录音'}
+                {asrWsStatus === 'connecting' ? '连接中...' : asrWsStatus === 'connected' ? '录音中' : '开始录音'}
               </button>
               <button
                 type="button"
-                className="rounded border border-gray-200 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60"
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60"
                 onClick={onStopAsrStream}
                 disabled={asrWsStatus !== 'connected' && asrWsStatus !== 'stopping'}
               >
                 停止
               </button>
-              <div className="text-xs text-gray-600">后处理参数取自上方页面配置（与 `/api/v1/text/shape` 一致）。</div>
             </div>
 
             {asrError ? <div className="mt-3 text-sm text-red-700">{asrError}</div> : null}
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+            <div className="mt-5 grid gap-4 lg:grid-cols-3">
               <label className="grid gap-2">
-                <span className="text-sm font-medium text-gray-800">ASR 流式（online）</span>
-                <textarea className="min-h-40 w-full resize-y rounded border px-3 py-2 text-sm" value={asrPartial} readOnly />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-gray-800">ASR 最终（offline）</span>
-                <textarea className="min-h-40 w-full resize-y rounded border px-3 py-2 text-sm" value={asrFinal} readOnly />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-gray-800">后处理结果</span>
+                <span className="text-sm font-medium text-gray-800">实时转写</span>
                 <textarea
-                  className="min-h-40 w-full resize-y rounded border px-3 py-2 text-sm"
+                  className="min-h-40 w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  value={asrPartial}
+                  readOnly
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-gray-800">本句定稿</span>
+                <textarea
+                  className="min-h-40 w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  value={asrFinal}
+                  readOnly
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-gray-800">塑形结果</span>
+                <textarea
+                  className="min-h-40 w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm"
                   value={asrShaped?.result_text ?? ''}
                   readOnly
                 />
@@ -804,44 +871,6 @@ export default function App() {
             </div>
           </section>
 
-          {shapeResult ? (
-            <section className="rounded-lg border bg-white p-4">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-lg font-medium">结果</h2>
-                <div className="text-xs text-gray-500">
-                  processed: {shapeResult.processed_length} / original: {shapeResult.original_length}
-                </div>
-              </div>
-
-              <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                <div className="rounded border p-3 text-sm">
-                  <div className="text-gray-600">Prompt tokens</div>
-                  <div className="text-base font-semibold">{shapeResult.tokens_used.prompt}</div>
-                </div>
-                <div className="rounded border p-3 text-sm">
-                  <div className="text-gray-600">Completion tokens</div>
-                  <div className="text-base font-semibold">{shapeResult.tokens_used.completion}</div>
-                </div>
-                <div className="rounded border p-3 text-sm">
-                  <div className="text-gray-600">Total tokens</div>
-                  <div className="text-base font-semibold">{shapeResult.tokens_used.total}</div>
-                </div>
-                <div className="rounded border p-3 text-sm">
-                  <div className="text-gray-600">Web result creation time</div>
-                  <div className="text-base font-semibold">{shapeResult.latency_ms} ms</div>
-                </div>
-              </div>
-
-              <label className="mt-4 grid gap-2">
-                <span className="text-sm font-medium text-gray-800">塑形结果文本</span>
-                <textarea
-                  className="min-h-56 w-full resize-y rounded border px-3 py-2 text-sm"
-                  value={shapeResult.result_text}
-                  readOnly
-                />
-              </label>
-            </section>
-          ) : null}
         </div>
       </div>
 

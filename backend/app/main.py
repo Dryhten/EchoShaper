@@ -32,7 +32,6 @@ from app.services.asr_2pass import (
     resample_pcm16le_mono,
 )
 from app.services.asr_2pass_model import TwoPassInput, TwoPassOutput
-from app.services.asr_hotwords import merge_hotwords_json_with_lexicon, parse_lexicon_json
 from app.services.asr_registry import get_asr_model
 from app.services.llm_client import create_llm_client, chat_completion
 from app.utils.text import strip_trailing_period
@@ -151,20 +150,17 @@ def _parse_json_or_none(raw: Optional[str]) -> Optional[dict[str, Any]]:
     return json.loads(raw)
 
 
-def _parse_lexicon_or_empty(raw: Optional[str]) -> list[str]:
-    if raw is None:
-        return []
-    text = raw.strip()
-    if not text:
-        return []
-    return parse_lexicon_json(text)
+def _sanitize_asr_config_dict(obj: dict[str, Any]) -> dict[str, Any]:
+    """服务端生成 wav_name，忽略客户端传入的 wav_name。"""
+    out = dict(obj)
+    out.pop("wav_name", None)
+    return out
 
 
 @app.post("/api/v1/asr/transcribe", response_model=AsrFileAsrResponse)
 async def asr_file_asr(
     file: UploadFile = File(...),
     asr_config: Optional[str] = Form(default=None),
-    lexicon: Optional[str] = Form(default=None),
 ) -> AsrFileAsrResponse:
     content = await file.read()
     parsed = parse_wav_pcm16_mono(content)
@@ -180,15 +176,9 @@ async def asr_file_asr(
             detail=f"音频重采样失败（需要 PCM16 单声道 WAV）：{parsed.sample_rate} Hz -> 8000 Hz，{e}",
         ) from e
 
-    cfg_obj = _parse_json_or_none(asr_config) or {}
+    cfg_obj = _sanitize_asr_config_dict(_parse_json_or_none(asr_config) or {})
     cfg = TwoPassInput.model_validate(cfg_obj)
-    try:
-        lexicon_words = _parse_lexicon_or_empty(lexicon)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"lexicon JSON 不合法: {e}") from e
-    cfg.hotwords = merge_hotwords_json_with_lexicon(cfg.hotwords, lexicon_words)
-    wav_name = cfg.wav_name or uuid.uuid4().hex
-    cfg.wav_name = wav_name
+    wav_name = cfg.wav_name
 
     try:
         asr_model = _resolve_asr_model(cfg.asr_model_name)
@@ -234,11 +224,9 @@ async def asr_file_shape(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"postprocess JSON 不合法: {e}") from e
 
-    cfg_obj = _parse_json_or_none(asr_config) or {}
+    cfg_obj = _sanitize_asr_config_dict(_parse_json_or_none(asr_config) or {})
     cfg = TwoPassInput.model_validate(cfg_obj)
-    cfg.hotwords = merge_hotwords_json_with_lexicon(cfg.hotwords, pp.lexicon)
-    wav_name = cfg.wav_name or uuid.uuid4().hex
-    cfg.wav_name = wav_name
+    wav_name = cfg.wav_name
 
     try:
         asr_model = _resolve_asr_model(cfg.asr_model_name)
@@ -285,10 +273,9 @@ async def asr_stream(ws: WebSocket) -> None:
         init_raw = await ws.receive_text()
         init_obj = AsrStreamInit.model_validate_json(init_raw)
 
-        session_id = init_obj.asr_config.wav_name or uuid.uuid4().hex
+        session_id = uuid.uuid4().hex
         asr_input = TwoPassInput.model_validate(init_obj.asr_config.model_dump())
-        asr_input.hotwords = merge_hotwords_json_with_lexicon(asr_input.hotwords, init_obj.postprocess.lexicon)
-        asr_input.wav_name = session_id
+        asr_input = asr_input.model_copy(update={"wav_name": session_id})
         try:
             asr_model = get_asr_model(asr_input.asr_model_name)
         except ValueError as e:

@@ -58,10 +58,8 @@ node scripts/start-backend.mjs
 ### 通用说明
 
 - `asr_config.asr_model_name`（可选）：预制 ASR 模型名。不传时默认为 `funasr`。当前仅允许：`funasr`。传入其它字符串会校验失败（HTTP 400 或 WebSocket 错误消息）。
-- 个人词库 `lexicon` 会同时用于：
-  - 后处理纠错（`/api/v1/text/shape` 与带 `postprocess` 的接口）；
-  - ASR 热词（`/api/v1/asr/transcribe`、`/api/v1/asr/transcribe/shape`、`/api/v1/asr/stream`）。
-- 热词合并规则：显式 `asr_config.hotwords` 优先保留，词库词条只做补充，不覆盖已传权重。
+- **`asr_config.hotwords`**：ASR 识别热词（可选）。字符串，内容为 **JSON**（对象：词 → 整数权重），仅用于识别阶段加权。
+- **`lexicon` / `postprocess.lexicon`**：个人词库（可选）。字符串数组，仅用于 **后处理（LLM 塑形）**，例如 `protect_lexicon` 与提示词中的词表替换，**不会**自动当作 ASR 识别热词。
 
 ### 1) 大模型连通性测试
 
@@ -120,23 +118,16 @@ node scripts/start-backend.mjs
 表单字段：
 
 - `file`：WAV 音频文件（PCM16 单声道，后端会重采样到 8k）。
-- `asr_config`（可选，JSON 字符串）：
+- `asr_config`（可选，JSON 字符串），仅影响 ASR，例如：
 
 ```json
 {
   "asr_model_name": "funasr",
-  "wav_name": "case_001",
   "hotwords": "{\"警官\":36}"
 }
 ```
 
-- `lexicon`（可选，JSON 字符串数组）：
-
-```json
-["警官", "回声作坊"]
-```
-
-说明：`lexicon` 会自动并入 ASR `hotwords`，并遵循“显式 hotwords 优先”规则。
+说明：响应里的 `wav_name` 为服务端生成的任务 ID，仅供对照日志，无需、也不接受客户端传入。
 
 ### 4) 上传音频，ASR + 后处理（转写后塑形）
 
@@ -145,17 +136,8 @@ node scripts/start-backend.mjs
 表单字段：
 
 - `file`：WAV 音频文件。
-- `asr_config`（可选，JSON 字符串）：
-
-```json
-{
-  "asr_model_name": "funasr",
-  "wav_name": "case_001",
-  "hotwords": "{\"警官\":36}"
-}
-```
-
-- `postprocess`（必填，JSON 字符串）：
+- `asr_config`（可选，JSON 字符串）：**仅 ASR**（模型名、`hotwords` 等），示例见 §3。
+- `postprocess`（必填，JSON 字符串），**仅后处理**：
 
 ```json
 {
@@ -171,7 +153,7 @@ node scripts/start-backend.mjs
 }
 ```
 
-说明：该接口中 `postprocess.lexicon` 会同时作用于 ASR 热词和后处理纠错。
+说明：`postprocess.lexicon` 只参与 LLM 塑形，不参与 ASR；需要 ASR 识别热词请在 `asr_config.hotwords` 中配置。
 
 ### 5) 流式识别（WebSocket）
 
@@ -194,10 +176,12 @@ node scripts/start-backend.mjs
   },
   "asr_config": {
     "asr_model_name": "funasr",
-    "wav_name": "web_123456"
+    "hotwords": "{\"警官\":36}"
   }
 }
 ```
+
+`asr_config` 可只含 `asr_model_name`；连接会话 ID 由服务端生成，**不支持**客户端传 `wav_name`。`postprocess.lexicon` 仅用于流式触发后的文本塑形；**ASR 识别热词**只来自 `asr_config.hotwords`（不传则无额外热词，由实现决定是否使用默认兜底）。
 
 然后持续发送 PCM 音频字节流，结束时可发送：
 
@@ -259,4 +243,3 @@ docker-compose up --build -d
 
 - `http://localhost`（需要 `Caddyfile` 包含 `localhost`）
 - `http://localhost/docs`（经 `caddy` 反代到后端）
-

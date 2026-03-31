@@ -44,7 +44,6 @@ class PostProcessParams(BaseModel):
 class Asr2PassConfig(BaseModel):
     asr_model_name: AsrModelName = DEFAULT_ASR_MODEL_NAME
     chunk_size: list[int] = Field(default_factory=lambda: [5, 10, 5])
-    wav_name: str = "h5"
     is_speaking: bool = True
     wav_format: str = "pcm"
     chunk_interval: int = 10

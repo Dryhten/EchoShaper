@@ -21,15 +21,10 @@ export async function shapeText(body: ProcessRequest): Promise<ShapeResponse> {
   return requestJson<ShapeResponse>(TEXT_SHAPE_PATH, body)
 }
 
-export async function asrFileAsr(
-  file: File,
-  asrConfig?: Record<string, unknown>,
-  lexicon?: string[],
-) {
+export async function asrFileAsr(file: File, asrConfig?: Record<string, unknown>) {
   const form = new FormData()
   form.append('file', file)
   if (asrConfig) form.append('asr_config', JSON.stringify(asrConfig))
-  if (lexicon && lexicon.length > 0) form.append('lexicon', JSON.stringify(lexicon))
   return requestForm<AsrFileAsrResponse>(ASR_FILE_ASR_PATH, form)
 }
 
